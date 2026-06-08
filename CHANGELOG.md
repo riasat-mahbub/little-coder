@@ -2,6 +2,19 @@
 
 All notable changes to little-coder are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and little-coder's public interface (CLI, providers, tools, skills) follows semver starting at `v0.0.1` post-rename.
 
+## [v1.8.4] — 2026-06-08
+
+### Added
+- **`output-parser` now recognizes LFM2 / Liquid "Pythonic" tool calls** ([#42](https://github.com/itayinbarr/little-coder/issues/42)). LiquidAI LFM2 models emit tool calls as a Python list wrapped in special tokens — `<|tool_call_start|>[Read(path='/a.c'), Bash(command='ls -la')]<|tool_call_end|>` — a format neither pi's native path nor the existing fenced/`<tool_call>`/bare-JSON parsers understood. New `parseLiquidToolCalls()` recovers them best-effort: single **and** double quotes, dict args (`{"k":"v"}`), list args (`['a','b']`), `True`/`False`/`None`, ints/floats, commas/parens **inside** string values, truncated tails (missing `)`/`]`/quote), the issue's exact leak shape (start token + `[` stripped, `]<|tool_call_end|><|im_end|>` trailing), and the real-world `<think>…</think>[calls]` shape — all with a precision guard so ordinary prose never trips it. Each recovered call is tagged `format: "liquid"`; the extension surfaces a single, accurate diagnostic for that format instead of the futile "use native tool calls" nudge (Pythonic *is* LFM2's native channel, so nudging would just loop). 20 new parser tests, including one built from verbatim LFM2.5-8B-A1B output.
+
+### Fixed / Documentation
+- **Diagnosed and documented the actual `Failed to parse input at pos N: …<|tool_call_end|>` failure** ([#42](https://github.com/itayinbarr/little-coder/issues/42)). The error is *server-side*: llama.cpp's `chat.cpp` tool-call parser chokes when the chat template doesn't match it — typically the GGUF's **embedded** template, which renders tools as a plain `List of tools: […]` blob without the `<|tool_list_start|>` / `<|tool_call_start|>` special tokens the parser expects. Verified end-to-end with `LiquidAI/LFM2.5-8B-A1B-Q4_K_M`: the embedded template reproduces the error and the tool never runs, while serving with `--jinja --chat-template-file LFM2-8B-A1B.jinja` (the matching template, with the special tokens) parses calls into native `tool_calls` and tools execute normally. New Troubleshooting entry with the exact fix.
+
+### Notes for upgraders
+- No CLI-flag or public-API changes. If you run an LFM2/Liquid model, serve llama.cpp with `--jinja` and the model's matching chat template (see Troubleshooting). The parser change only adds recovery + a clearer diagnostic for builds that leak the calls as text.
+
+---
+
 ## [v1.8.3] — 2026-06-08
 
 ### Fixed
