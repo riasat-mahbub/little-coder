@@ -160,7 +160,7 @@ export default function (pi: ExtensionAPI) {
           const pwdLine = truncateLineToWidth(honeyFg("lc▌") + " " + theme.fg("dim", pwd), width, "");
 
           // --- Extension statuses ---
-          const extStatuses = capturedFd?.getExtensionStatuses?.() ?? new Map();
+          const extStatuses: Map<string, string> = capturedFd?.getExtensionStatuses?.() ?? new Map();
           const lines: string[] = [pwdLine];
 
           // Dim the stats left (context % is already colored inside it).
@@ -172,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 
           if (extStatuses.size > 0) {
             const sorted = Array.from(extStatuses.entries())
-              .sort(([a], [b]) => a.localeCompare(b))
+              .sort((a, b) => a[0].localeCompare(b[0]))
               .map(([, text]) => sanitize(text));
             lines.push(truncateLineToWidth(theme.fg("dim", sorted.join(" ")), width, theme.fg("dim", "...")));
           }
