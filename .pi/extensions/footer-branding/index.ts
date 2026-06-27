@@ -137,25 +137,6 @@ export default function (pi: ExtensionAPI) {
             } catch { /* ignore */ }
           }
 
-          // --- Assemble the line ---
-          const statsLeftWidth = visibleWidth(statsLeft);
-          const rightSideWidth = visibleWidth(rightSide);
-          let statsLine: string;
-
-          if (statsLeftWidth + 2 + rightSideWidth <= width) {
-            const padding = " ".repeat(width - statsLeftWidth - rightSideWidth);
-            statsLine = statsLeft + padding + rightSide;
-          } else {
-            const availForRight = Math.max(0, width - statsLeftWidth - 2);
-            if (availForRight > 0) {
-              const truncatedRight = truncateLineToWidth(rightSide, availForRight, "");
-              const pad = " ".repeat(Math.max(0, width - visibleWidth(statsLeft) - visibleWidth(truncatedRight)));
-              statsLine = statsLeft + pad + truncatedRight;
-            } else {
-              statsLine = statsLeft;
-            }
-          }
-
           // --- pwd line with honey watermark ---
           const cwd = sm.getCwd();
           let pwd = cwd.replace(process.env.HOME || "~", "~");
@@ -171,11 +152,9 @@ export default function (pi: ExtensionAPI) {
 
           // statsLeft has colored context % — keep as-is.
           // rightSide has honey-colored model name — keep as-is.
-          // Only the padding between them gets dimmed.
-          const paddingStart = statsLeft.length;
-          const paddingEnd = width - visibleWidth(rightSide);
-          const pad = statsLine.slice(paddingStart, paddingEnd);
-          lines.push(statsLeft + theme.fg("dim", pad) + rightSide);
+          // Model name goes on its own line below the token count, not side-by-side.
+          lines.push(statsLeft);
+          lines.push(rightSide);
 
           if (extStatuses.size > 0) {
             const sorted = Array.from(extStatuses.entries())
