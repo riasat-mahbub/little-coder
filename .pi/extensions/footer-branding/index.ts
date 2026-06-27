@@ -80,6 +80,7 @@ export default function (pi: ExtensionAPI) {
           const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
           const contextPercentValue = contextUsage?.percent ?? 0;
           const contextPercent = contextUsage?.percent !== null ? contextPercentValue.toFixed(1) : "?";
+          const contextTokens = contextUsage?.tokens ?? null;
 
           // --- Build left-side stats ---
           const statsParts: string[] = [];
@@ -98,37 +99,42 @@ export default function (pi: ExtensionAPI) {
             statsParts.push(costStr);
           }
 
-          // Context percentage — color-coded
-          const contextDisplay = contextPercent === "?"
-            ? `?/${fmtTokens(contextWindow)}`
-            : `${contextPercent}%/${fmtTokens(contextWindow)}`;
-          const coloredContext = `${ctxColor(contextPercentValue)}${contextDisplay}${ctxReset}`;
-          statsParts.push(coloredContext);
+          // Context percentage on its own line, color-coded
+          let contextPctLine: string;
+          if (contextTokens !== null) {
+            contextPctLine = `${ctxColor(contextPercentValue)}${contextPercent}%${ctxReset}`;
+          } else {
+            contextPctLine = `${ctxColor(contextPercentValue)}?%${ctxReset}`;
+          }
+
+          // Context token fraction on its own line (below percentage)
+          let contextTokenLine: string;
+          if (contextTokens !== null) {
+            contextTokenLine = `${ctxColor(contextPercentValue)}${fmtTokens(contextTokens)}/${fmtTokens(contextWindow)}${ctxReset}`;
+          } else {
+            contextTokenLine = `${ctxColor(contextPercentValue)}?/${fmtTokens(contextWindow)}${ctxReset}`;
+          }
+
+          statsParts.push(contextPctLine);
+          statsParts.push(contextTokenLine);
 
           let statsLeft = statsParts.join(" ");
           if (visibleWidth(statsLeft) > width) {
             statsLeft = truncateLineToWidth(statsLeft, width, "...");
           }
 
-          // --- Right side: model name + thinking level ---
-          const modelName = ctx.model?.id || "no-model";
-          let rightSide = modelName;
+          // --- Right side: model name + provider (honey-colored) + thinking level ---
+          const modelName = ctx.model?.name || ctx.model?.id || "no-model";
+          const modelProvider = ctx.model?.provider ? ` | ${ctx.model.provider}` : "";
+          const coloredModel = honeyFg(`${modelName}${modelProvider}`);
+          let rightSide = coloredModel;
           if (ctx.model?.reasoning) {
             try {
               const thinkingLevel = (ctx as any).thinkingLevel || "off";
               rightSide = thinkingLevel === "off"
-                ? `${modelName} • thinking off`
-                : `${modelName} • ${thinkingLevel}`;
+                ? `${coloredModel} • thinking off`
+                : `${coloredModel} • ${thinkingLevel}`;
             } catch { /* ignore */ }
-          }
-
-          // Prepend provider if multiple available and room
-          const availProviders = capturedFd?.getAvailableProviderCount?.() ?? 1;
-          if (availProviders > 1 && ctx.model) {
-            const withProvider = `(${ctx.model.provider}) ${rightSide}`;
-            if (visibleWidth(statsLeft) + 2 + visibleWidth(withProvider) <= width) {
-              rightSide = withProvider;
-            }
           }
 
           // --- Assemble the line ---
@@ -163,12 +169,13 @@ export default function (pi: ExtensionAPI) {
           const extStatuses: Map<string, string> = capturedFd?.getExtensionStatuses?.() ?? new Map();
           const lines: string[] = [pwdLine];
 
-          // Dim the stats left (context % is already colored inside it).
-          // The remainder (padding + model name) gets dimmed too.
-          const dimLeft = theme.fg("dim", statsLeft);
-          const remainder = statsLine.slice(statsLeft.length);
-          const dimRemainder = theme.fg("dim", remainder);
-          lines.push(dimLeft + dimRemainder);
+          // statsLeft has colored context % — keep as-is.
+          // rightSide has honey-colored model name — keep as-is.
+          // Only the padding between them gets dimmed.
+          const paddingStart = statsLeft.length;
+          const paddingEnd = width - visibleWidth(rightSide);
+          const pad = statsLine.slice(paddingStart, paddingEnd);
+          lines.push(statsLeft + theme.fg("dim", pad) + rightSide);
 
           if (extStatuses.size > 0) {
             const sorted = Array.from(extStatuses.entries())
