@@ -1,0 +1,13 @@
+{
+  "name": "@little-coder/footer-branding",
+  "version": "1.0.0",
+  "description": "Custom footer component for little-coder — honey-colored watermark, context %, token counts, model info.",
+  "type": "module",
+  "main": "index.ts",
+  "pi.extensions": [
+    "index.ts"
+  ],
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
